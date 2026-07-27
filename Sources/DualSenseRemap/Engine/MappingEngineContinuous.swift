@@ -30,7 +30,7 @@ extension MappingEngine {
 
         // Pause synthesis (and drop any held direction keys) while disabled
         // or while the virtual keyboard owns the controller.
-        if !isEnabled || VirtualKeyboardController.shared.isVisible {
+        if !isEnabled || VirtualKeyboardController.shared.isCurrentlyVisible {
             releaseContinuousHolds()
             return
         }

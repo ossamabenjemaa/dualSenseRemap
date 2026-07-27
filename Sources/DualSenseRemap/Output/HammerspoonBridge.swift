@@ -92,9 +92,13 @@ final class HammerspoonBridge {
         debounceLock.unlock()
         if isDuplicate { return true }
 
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false // never let Hammerspoon steal focus
-        NSWorkspace.shared.open(url, configuration: configuration, completionHandler: nil)
+        // trigger() is called from the mapping engine's event path — hop to
+        // the main queue for the AppKit call (fire-and-forget).
+        DispatchQueue.main.async {
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = false // never let Hammerspoon steal focus
+            NSWorkspace.shared.open(url, configuration: configuration, completionHandler: nil)
+        }
         return true
     }
 

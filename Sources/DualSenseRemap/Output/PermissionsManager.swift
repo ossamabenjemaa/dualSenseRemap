@@ -98,7 +98,9 @@ final class PermissionsManager: ObservableObject {
     /// Shows the system Accessibility consent dialog (once per TCC reset) and
     /// refreshes the published state.
     func promptAccessibility() {
-        let promptKey = kAXTrustedCheckOptionPrompt.takeRetainedValue() as String
+        // takeUnretainedValue: the constant is an unowned global CFString —
+        // taking a retained value would over-release it.
+        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         let options = [promptKey: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         refresh()

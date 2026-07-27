@@ -101,7 +101,10 @@ final class ActionExecutor {
                         EventSynthesizer.typeText(text)
                     case .wait(let milliseconds):
                         if milliseconds > 0 {
-                            usleep(useconds_t(milliseconds) * 1000)
+                            // Compute microseconds in 64-bit and clamp so a
+                            // corrupt profile can never overflow useconds_t.
+                            let microseconds = UInt64(milliseconds) * 1000
+                            usleep(useconds_t(min(microseconds, UInt64(UInt32.max))))
                         }
                     }
                 }
@@ -149,6 +152,7 @@ final class ActionExecutor {
         guard !trimmed.isEmpty else { return }
 
         workQueue.async { [weak self] in
+            guard let self else { return }
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
             process.arguments = ["-lc", trimmed]
@@ -162,16 +166,21 @@ final class ActionExecutor {
                 self.processLock.unlock()
             }
 
-            do {
-                try process.run()
-            } catch {
-                return // command not runnable — nothing else to do
-            }
-
-            guard let self else { return }
+            // Retain BEFORE run(): a fast-exiting command would otherwise fire
+            // the termination handler before the insert and leak the Process.
             self.processLock.lock()
             self.runningProcesses.insert(process)
             self.processLock.unlock()
+
+            do {
+                try process.run()
+            } catch {
+                // Command not runnable — drop the retained reference.
+                self.processLock.lock()
+                self.runningProcesses.remove(process)
+                self.processLock.unlock()
+                return
+            }
 
             // 10 s timeout: terminate, then SIGKILL if it ignores SIGTERM.
             DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 10) {

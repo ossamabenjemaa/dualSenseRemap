@@ -273,7 +273,9 @@ final class MappingEngine {
         }
 
         // The virtual keyboard has priority over all mappings while visible.
-        if VirtualKeyboardController.shared.isVisible,
+        // (isCurrentlyVisible is the lock-guarded mirror — this runs on the
+        // engine queue, not the main thread.)
+        if VirtualKeyboardController.shared.isCurrentlyVisible,
            VirtualKeyboardController.shared.handle(event) {
             // Consumed by the keyboard. Still process "release" edges so no
             // synthetic key/click stays stuck behind the keyboard overlay.
@@ -450,6 +452,13 @@ final class MappingEngine {
         }
         manager.setAdaptiveTrigger(.left, effect: profile.leftTrigger.adaptiveEffect)
         manager.setAdaptiveTrigger(.right, effect: profile.rightTrigger.adaptiveEffect)
+        // Gyro sensors stream only while the active profile needs them
+        // (saves controller battery). The tuning UI also toggles this live.
+        if case .disabled = profile.gyroMode {
+            manager.setGyroActive(false)
+        } else {
+            manager.setGyroActive(true)
+        }
         if playSwitchPulse && profile.haptics.enabled {
             manager.playHapticPulse(intensity: profile.haptics.intensity,
                                     durationMs: Constants.profileSwitchPulseMs)

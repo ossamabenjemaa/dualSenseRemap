@@ -1,0 +1,35 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build (release)
+        shell: bash
+        run: |
+          set -o pipefail
+          swift build -c release 2>&1 | tee build.log
+
+      - name: Assemble .app bundle
+        run: make app
+
+      - name: Zip the app (ditto keeps bundle metadata)
+        run: ditto -c -k --keepParent "dist/DualSense Remap.app" "dist/DualSense-Remap.app.zip"
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DualSense-Remap.app
+          path: dist/DualSense-Remap.app.zip
+          if-no-files-found: error

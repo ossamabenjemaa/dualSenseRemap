@@ -1,0 +1,41 @@
+# XcodeGen project description (OPTIONAL — the canonical build is SwiftPM,
+# see docs/BUILD.md). Generate an Xcode project with:
+#
+#   brew install xcodegen
+#   xcodegen generate
+#   open DualSenseRemap.xcodeproj
+#
+# The hand-maintained Resources/Info.plist is referenced through
+# INFOPLIST_FILE (not the `info:` spec) so XcodeGen never regenerates or
+# overwrites it.
+
+name: DualSenseRemap
+
+options:
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+targets:
+  DualSenseRemap:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: Sources/DualSenseRemap
+      # Parity with Scripts/bundle.sh: ship the Spoon in Contents/Resources —
+      # HammerspoonBridge.installSpoon() probes the bundle resources first.
+      - path: Hammerspoon/DualSenseRemap.spoon
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dualsenseremap.app
+        PRODUCT_NAME: DualSense Remap
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_APP_SANDBOX: NO
