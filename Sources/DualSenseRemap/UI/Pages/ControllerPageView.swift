@@ -259,6 +259,7 @@ public struct ControllerPageView: View {
             PagesTriggersCard()
             PagesTouchpadCard()
             PagesGyroCard()
+            PagesHapticsCard()
         }
     }
 }

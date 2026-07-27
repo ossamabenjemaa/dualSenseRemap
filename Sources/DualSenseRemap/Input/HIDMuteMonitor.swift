@@ -233,18 +233,20 @@ final class HIDMuteMonitor {
         var pressed: Bool?
         switch reportID {
         case 0x01 where length >= 32:
-            // USB full report (63-byte payload after the stripped report ID):
-            // buttons[2] is payload byte 9; mute is bit 2.
-            pressed = (report[9] & 0x04) != 0
+            // USB full report. The IOKit callback buffer is
+            // [reportID][payload…] — macOS does NOT strip the report ID for
+            // multi-report devices — so buttons[2] (payload byte 9) is at
+            // absolute offset 10; mute is bit 2.
+            pressed = (report[10] & 0x04) != 0
         case 0x01:
             // Bluetooth "simple" DS4-style report — no mute bit. The
             // enhanced-report handshake issued at attach time upgrades the
             // stream to 0x31; nothing to parse here.
             break
         case 0x31 where length >= 12:
-            // Bluetooth full report: one extra sequence byte before the state
-            // payload, so buttons[2] lands at byte 10.
-            pressed = (report[10] & 0x04) != 0
+            // Bluetooth full report: [0x31 ID][sequence byte][state payload…],
+            // so buttons[2] (state byte 9) lands at absolute offset 11.
+            pressed = (report[11] & 0x04) != 0
         default:
             break
         }

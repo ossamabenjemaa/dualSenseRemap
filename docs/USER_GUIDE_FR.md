@@ -110,6 +110,10 @@ La page centrale : votre DualSense rendue à l'écran, avec un point d'accès
 - **Retours** : la couleur de la **barre lumineuse** et l'intensité
   **haptique** appartiennent au profil — elles s'appliquent à la manette à
   chaque activation de profil (avec une brève impulsion de confirmation).
+  La carte **« Retour haptique »** (sous le schéma de la manette) permet
+  d'activer/désactiver les impulsions du profil et d'en régler l'intensité
+  (0–100 %) ; la couleur de la barre lumineuse se choisit sur la carte du
+  profil (page Profils).
 
 Note L2/R2 : le déclenchement des actions liées à L2/R2 est piloté par le
 **seuil analogique** (réglable), jamais par le contact numérique — vous
@@ -148,8 +152,10 @@ lui-même est un panneau flottant indépendant de la fenêtre — voir §3) :
 
 - aperçu du clavier et de ses pages ;
 - rappel des raccourcis manette ;
-- réglages : **taille** du panneau (70–140 %) et **retour haptique à la
-  frappe** (aussi disponibles dans Réglages).
+- réglages : **taille** du panneau (70–140 %), **retour haptique à la
+  frappe** (tous deux aussi disponibles dans Réglages) et **envoi d'Entrée
+  par OK (R2)** — activé par défaut, à désactiver si Entrée validerait un
+  formulaire à contretemps.
 
 Pour l'invoquer : **△** dans le profil par défaut, le menu de la barre des
 menus (« Clavier virtuel »), l'action « Clavier virtuel » liable à n'importe
@@ -254,7 +260,7 @@ reprennent à la fermeture).
 | L2 | **Maj** — appui bref : majuscule pour 1 lettre ; double appui (< 0,35 s) : verrouillage majuscules ; maintien : majuscule tant que la gâchette est tenue |
 | L1 / R1 | Déplacer le **curseur de texte** ← / → dans l'app cible |
 | R3 | Basculer vers/depuis la page **accents** |
-| R2 | **OK** — ferme le clavier |
+| R2 | **OK** — envoie **Entrée** (⏎) puis ferme le clavier *(envoi d'Entrée désactivable, voir §2.3)* |
 
 La touche ⇧ à l'écran suit le même cycle que L2 (appui : 1 lettre → appui :
 verrouillage → appui : désactivé). La majuscule « pour une lettre » se
@@ -326,9 +332,10 @@ second appui revient à la page précédente.
 
 - Les **champs de mot de passe** (saisie sécurisée macOS) peuvent ignorer le
   texte injecté — c'est une protection du système.
-- La touche **OK (R2)** ferme le clavier sans envoyer Entrée ; pour valider
-  un formulaire, utilisez la touche ⏎ de l'app cible (par ex. en cliquant),
-  ou liez Entrée à un bouton de la manette dans votre profil.
+- La touche **OK (R2)** envoie Entrée puis ferme le clavier. Si Entrée
+  validerait un formulaire à contretemps, désactivez « OK (R2) envoie Entrée
+  avant de fermer » dans la page « Clavier virtuel » — OK se contentera alors
+  de fermer le clavier.
 - Le retour haptique à la frappe suit l'intensité haptique du profil actif
   (et l'interrupteur dédié dans Réglages).
 
@@ -356,7 +363,7 @@ Avec le profil « Défaut », sans rien configurer :
 3. **L1 / R1** : onglet précédent / suivant ; **L2** : revenir à l'app
    précédente (⌘⇥).
 4. Champ de recherche : **△** ouvre le clavier virtuel — tapez, puis **R2**
-   (OK) pour le refermer.
+   (OK) pour valider la recherche (Entrée) et refermer le clavier.
 5. **□** : Mission Control pour changer de fenêtre ; **R3** : Launchpad.
 
 Astuce : dupliquez « Défaut » en profil « Canapé » et liez-le à Safari pour
@@ -395,7 +402,7 @@ Pour un usage confortable avec une motricité fine limitée :
   relâche — aucun maintien nécessaire pour un glisser-déposer.
 - **Gâchettes adaptatives → Clic (seuil)** : le cran physique confirme le
   déclenchement dans le doigt ; montez l'**intensité haptique** du profil
-  pour une confirmation tactile de chaque action.
+  (page Manette, carte « Retour haptique ») pour une confirmation tactile.
 - Croix directionnelle → flèches, **△ → clavier virtuel** pour la saisie de
   texte, **L3 → Spotlight** pour tout lancer sans viser de petites cibles.
 
@@ -507,6 +514,19 @@ URL émise par l'app : `hammerspoon://dsr?event=NOM[&paramètres]`.
 | `typeClipboard` | Taper le contenu du presse-papiers |
 | `reload` | Recharger la configuration Hammerspoon |
 | *(vos noms)* | `spoon.DualSenseRemap.userHooks["nom"]` |
+
+Note : un bouton de la manette lié à un événement Hammerspoon l'envoie **sans
+paramètres**. Les actions paramétrées du Spoon (comme `focusApp`, qui exige
+`bundle=` ou `app=`) ne font donc rien si elles sont liées directement —
+enveloppez-les dans un `userHook` qui fournit les paramètres :
+
+```lua
+spoon.DualSenseRemap.userHooks["focusSafari"] = function()
+  hs.application.launchOrFocusByBundleID("com.apple.Safari")
+end
+```
+
+puis liez l'événement `focusSafari` à un bouton.
 
 ### 5.6 URL de pilotage de l'app
 

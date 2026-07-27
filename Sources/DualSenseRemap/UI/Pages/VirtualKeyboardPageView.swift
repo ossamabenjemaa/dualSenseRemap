@@ -4,11 +4,14 @@ import AppKit
 import Combine
 
 /// Virtual keyboard page: static PS5-style AZERTY preview, controller
-/// shortcut reference and mirrored settings (scale + haptics).
+/// shortcut reference and settings (scale + haptics + Return-on-OK).
 public struct VirtualKeyboardPageView: View {
 
     @ObservedObject private var store = ProfileStore.shared
     @ObservedObject private var keyboard = VirtualKeyboardController.shared
+
+    /// Local mirror of the module preference (UserDefaults is not observable).
+    @State private var sendReturnOnDone = VKPreferences.sendReturnOnDone
 
     public init() {}
 
@@ -77,7 +80,7 @@ public struct VirtualKeyboardPageView: View {
         KeyboardShortcut(id: "r3", glyph: "R3", title: "Accents",
                          detail: "Bascule la page des accents"),
         KeyboardShortcut(id: "r2", glyph: "R2", title: "Terminé",
-                         detail: "Termine la saisie et ferme le clavier"),
+                         detail: "Envoie Entrée puis ferme le clavier"),
     ]
 
     private var shortcutsCard: some View {
@@ -132,6 +135,11 @@ public struct VirtualKeyboardPageView: View {
                            format: { String(format: "%.0f %%", $0 * 100) })
             Toggle("Impulsion haptique à chaque touche", isOn: $store.settings.keyboardHapticFeedback)
                 .font(.system(size: 12))
+            Toggle("OK (R2) envoie Entrée avant de fermer", isOn: $sendReturnOnDone)
+                .font(.system(size: 12))
+                .onChange(of: sendReturnOnDone) { newValue in
+                    VKPreferences.sendReturnOnDone = newValue
+                }
         }
         .pagesCard()
     }

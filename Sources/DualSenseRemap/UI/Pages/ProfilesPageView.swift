@@ -50,7 +50,7 @@ public struct ProfilesPageView: View {
             Toggle("Changement automatique de profil selon l'application au premier plan",
                    isOn: $store.settings.autoSwitchProfiles)
                 .font(.system(size: 12))
-            Text("Quand une application liée passe au premier plan, son profil est activé automatiquement et reste actif jusqu'au prochain changement. La couleur de la barre lumineuse suit le profil actif.")
+            Text("Quand une application liée passe au premier plan, son profil est activé automatiquement ; le profil précédent revient dès qu'une application non liée reprend le premier plan. La couleur de la barre lumineuse suit le profil actif.")
                 .font(.system(size: 11))
                 .foregroundColor(VKPagesPalette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

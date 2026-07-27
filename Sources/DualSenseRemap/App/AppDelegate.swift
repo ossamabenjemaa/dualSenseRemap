@@ -9,6 +9,7 @@ import Combine
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var openMainWindowObserver: NSObjectProtocol?
+    private var hammerspoonRequiredObserver: NSObjectProtocol?
 
     // MARK: - Lifecycle
 
@@ -19,6 +20,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // `.openMappingWindow`, and reusable by any other module.
         openMainWindowObserver = NotificationCenter.default.addObserver(
             forName: ActionExecutor.openMainWindowNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            AppCoordinator.shared.showMainWindow()
+        }
+
+        // Posted (one-shot per event) by ActionExecutor when a mapped
+        // Hammerspoon-only event fires without Hammerspoon: bring the main
+        // window up — ShellView routes it to the Hammerspoon page.
+        hammerspoonRequiredObserver = NotificationCenter.default.addObserver(
+            forName: ActionExecutor.hammerspoonRequiredNotification,
             object: nil,
             queue: .main
         ) { _ in
@@ -41,6 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     deinit {
         if let observer = openMainWindowObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = hammerspoonRequiredObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }

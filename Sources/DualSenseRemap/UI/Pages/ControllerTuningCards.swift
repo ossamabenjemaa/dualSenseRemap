@@ -116,6 +116,8 @@ struct PagesSticksCard: View {
                     .labelsHidden()
                     .frame(width: 140)
                 }
+                Toggle("Inverser l'axe Y", isOn: invertYBinding(isLeft))
+                    .font(.system(size: 11))
             } else if choice == .arrows {
                 PagesSliderRow(title: "Intervalle de répétition (ms)",
                                value: repeatIntervalBinding(isLeft),
@@ -208,6 +210,17 @@ struct PagesSticksCard: View {
             set: { newValue in
                 var t = tuning(isLeft)
                 t.curve = newValue
+                setTuning(t, isLeft: isLeft)
+            }
+        )
+    }
+
+    private func invertYBinding(_ isLeft: Bool) -> Binding<Bool> {
+        Binding(
+            get: { tuning(isLeft).invertY },
+            set: { newValue in
+                var t = tuning(isLeft)
+                t.invertY = newValue
                 setTuning(t, isLeft: isLeft)
             }
         )
@@ -652,6 +665,54 @@ struct PagesGyroCard: View {
                     setGyroMode(.mousePointer(sensitivity: sensitivity, activationHold: newValue))
                 }
             }
+        )
+    }
+}
+
+// MARK: - Haptics card
+
+struct PagesHapticsCard: View {
+    @ObservedObject private var store = ProfileStore.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            PagesSectionHeader("Retour haptique",
+                               subtitle: "Impulsions de confirmation — réglées par profil")
+            Toggle("Impulsions haptiques", isOn: enabledBinding)
+                .font(.system(size: 11))
+            PagesSliderRow(title: "Intensité",
+                           value: intensityBinding,
+                           range: 0...1,
+                           format: { String(format: "%.0f %%", $0 * 100) })
+                .disabled(!store.activeProfile.haptics.enabled)
+            Text("Jouées à l'activation d'un profil et à la frappe sur le clavier virtuel.")
+                .font(.system(size: 10))
+                .foregroundColor(VKPagesPalette.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .pagesCard()
+        .animation(VKPagesPalette.quick, value: store.activeProfile.haptics.enabled)
+    }
+
+    // MARK: Bindings
+
+    private func updateHaptics(_ transform: (inout HapticsSettings) -> Void) {
+        var profile = store.activeProfile
+        transform(&profile.haptics)
+        store.updateProfile(profile)
+    }
+
+    private var enabledBinding: Binding<Bool> {
+        Binding(
+            get: { store.activeProfile.haptics.enabled },
+            set: { newValue in updateHaptics { $0.enabled = newValue } }
+        )
+    }
+
+    private var intensityBinding: Binding<Double> {
+        Binding(
+            get: { store.activeProfile.haptics.intensity },
+            set: { newValue in updateHaptics { $0.intensity = newValue } }
         )
     }
 }

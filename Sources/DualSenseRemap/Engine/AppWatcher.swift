@@ -16,6 +16,9 @@ final class AppWatcher {
     /// Last profile auto-activated by this watcher, to avoid redundant
     /// switches when the same app keeps regaining focus.
     private var lastAutoActivatedProfileID: UUID?
+    /// Profile that was active before the first auto-switch, restored when
+    /// the frontmost app has no linked profile (main thread only).
+    private var profileIDBeforeAutoSwitch: UUID?
 
     private init() {}
 
@@ -50,7 +53,12 @@ final class AppWatcher {
 
         let store = ProfileStore.shared
         guard store.settings.autoSwitchProfiles else { return }
-        guard let profile = store.profile(forApp: bundleID) else { return }
+        guard let profile = store.profile(forApp: bundleID) else {
+            // No linked profile for the new frontmost app — bring back the
+            // profile that was active before the auto-switch.
+            revertAfterAutoSwitchIfNeeded(store: store)
+            return
+        }
 
         // Skip when this watcher already activated that profile and it is
         // still the active one.
@@ -58,7 +66,32 @@ final class AppWatcher {
             return
         }
 
+        // Remember the profile to come back to. Only capture it when the
+        // current profile is NOT one this watcher activated, so hopping
+        // between two linked apps keeps the original base profile.
+        if store.activeProfileID != lastAutoActivatedProfileID {
+            profileIDBeforeAutoSwitch = store.activeProfileID
+        }
+
         lastAutoActivatedProfileID = profile.id
         store.activateProfile(id: profile.id)
+    }
+
+    /// Re-activates the pre-auto-switch profile when the active profile is
+    /// still the one this watcher activated. A manual profile change after an
+    /// auto-switch wins: it breaks that condition, so nothing is reverted.
+    private func revertAfterAutoSwitchIfNeeded(store: ProfileStore) {
+        guard let autoID = lastAutoActivatedProfileID,
+              store.activeProfileID == autoID else { return }
+        lastAutoActivatedProfileID = nil
+        let baseID = profileIDBeforeAutoSwitch
+        profileIDBeforeAutoSwitch = nil
+        if let baseID, store.profiles.contains(where: { $0.id == baseID }) {
+            store.activateProfile(id: baseID)
+        } else if let fallback = store.profiles.first {
+            // Base profile deleted meanwhile — fall back to the store's
+            // first (default) profile.
+            store.activateProfile(id: fallback.id)
+        }
     }
 }

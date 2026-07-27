@@ -165,7 +165,7 @@ directement dans le champ actif de l'app au premier plan.
 | L2 | Maj — appui : 1 lettre ; double appui : verrouillage ; maintien : momentané |
 | L1 / R1 | Déplacer le curseur de texte ← / → dans l'app cible |
 | R3 | Page accents (à â é è … + majuscules accentuées) |
-| R2 | **OK** — ferme le clavier |
+| R2 | **OK** — envoie Entrée (⏎) puis ferme le clavier *(l'envoi d'Entrée est désactivable dans la page « Clavier virtuel »)* |
 
 Quatre pages : lettres AZERTY + chiffres, symboles (2 pages), accents
 français complets. Tableaux détaillés touche par touche dans le

@@ -6,6 +6,21 @@ enum VKDirection: Equatable {
     case up, down, left, right
 }
 
+/// Module-local keyboard preferences (spec A.7). Stored in UserDefaults
+/// because `AppSettings` lives in Core/, which is owned by the architect and
+/// must not be edited from this module.
+enum VKPreferences {
+    private static let sendReturnOnDoneKey = "VKSendReturnOnDone"
+
+    /// R2 / OK sends Return (keycode 36) before hiding the keyboard.
+    /// Default on, per spec A.7 (`sendReturnOnDone`); turn off for fields
+    /// where Return would submit undesirably.
+    static var sendReturnOnDone: Bool {
+        get { UserDefaults.standard.object(forKey: sendReturnOnDoneKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: sendReturnOnDoneKey) }
+    }
+}
+
 /// Interaction model of the virtual keyboard. All methods and all `@Published`
 /// mutations run on the main thread — `VirtualKeyboardController.handle(_:)`
 /// dispatches controller events here via `DispatchQueue.main.async`.
@@ -385,7 +400,11 @@ final class VKModel: ObservableObject {
         case .controllerHint:
             break // informational key, mirrors the PS5 L3+R3 hint
         case .done:
-            dismiss() // Done: close WITHOUT sending Return
+            // Done: validate (Return, default-on preference) then close.
+            if VKPreferences.sendReturnOnDone {
+                EventSynthesizer.tap(KeyCombo(keyCode: 36, modifiers: [], label: "⏎"))
+            }
+            dismiss()
         }
     }
 
@@ -489,12 +508,13 @@ final class VKModel: ObservableObject {
 
     // MARK: Haptics
 
-    /// Subtle controller tick, gated by the app setting and scaled by the
-    /// active profile's haptic intensity.
+    /// Subtle controller tick, gated by the app setting and the active
+    /// profile's haptic settings (enabled flag + intensity scale).
     private func hapticTick(base: Double) {
         guard ProfileStore.shared.settings.keyboardHapticFeedback else { return }
-        let profileScale = ProfileStore.shared.activeProfile.haptics.intensity
-        let intensity = max(0, min(1, base * profileScale))
+        let haptics = ProfileStore.shared.activeProfile.haptics
+        guard haptics.enabled else { return }
+        let intensity = max(0, min(1, base * haptics.intensity))
         guard intensity > 0 else { return }
         DualSenseManager.shared.playHapticPulse(intensity: intensity, durationMs: 12)
     }

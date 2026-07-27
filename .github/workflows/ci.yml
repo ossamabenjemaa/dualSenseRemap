@@ -15,6 +15,12 @@ jobs:
       - name: Swift version
         run: swift --version
 
+      - name: Build (debug — reports errors across all files)
+        shell: bash
+        run: |
+          set -o pipefail
+          swift build 2>&1 | tee build-debug.log
+
       - name: Build (release)
         shell: bash
         run: |

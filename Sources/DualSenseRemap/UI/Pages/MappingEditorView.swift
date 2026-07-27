@@ -101,10 +101,14 @@ struct MappingEditorView: View {
     // Remap
     @State private var remapSelection: Action = .toggleVirtualKeyboard
 
+    // Only parameterless events are suggested: a bound action is delivered
+    // without parameters (`params: [:]` in ActionExecutor), so parameterized
+    // Spoon actions like `focusApp` would silently do nothing — wrap those in
+    // a `userHook` instead (see USER_GUIDE §5.5).
     private static let hammerspoonSuggestions = [
         "launchpad", "missionControl", "showDesktop",
         "windowLeft", "windowRight", "windowMax",
-        "focusApp", "spaceLeft", "spaceRight",
+        "windowCenter", "spaceLeft", "spaceRight",
     ]
 
     init(element: ControllerElement) {
@@ -444,6 +448,10 @@ struct MappingEditorView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            Text("L'événement est envoyé sans paramètres. Pour une action paramétrée du Spoon (ex. focusApp), créez un userHook dans votre init.lua et liez son nom ici.")
+                .font(.system(size: 10))
+                .foregroundColor(VKPagesPalette.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
             Button("Assigner l'événement") { assign(.hammerspoon(event: hammerspoonEvent)) }
                 .buttonStyle(PagesPrimaryButtonStyle())
                 .disabled(hammerspoonEvent.isEmpty)

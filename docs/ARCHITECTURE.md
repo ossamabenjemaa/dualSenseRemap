@@ -172,8 +172,10 @@ PS5-style AZERTY keyboard in a **non-activating** `NSPanel`
 target app keeps keyboard focus; characters are delivered with
 `EventSynthesizer.typeText`. Controller mapping mirrors the PS5 OSK: d-pad/left
 stick = focus, ✕ = press, ○ = close, △ = space, □ = backspace, L2 = shift,
-L1/R1 = move text cursor, R3 = accents page, R2 = validate (Return) + close,
-touchpad swipe = fast row jump.
+L1/R1 = move text cursor, R3 = accents page, R2 = validate (sends Return —
+default-on module preference `sendReturnOnDone`) + close. Touchpad/gyro events
+are consumed but unused while the keyboard is visible (the spec'd touchpad
+fast-row-jump is not implemented in v1).
 
 ### UI + App
 

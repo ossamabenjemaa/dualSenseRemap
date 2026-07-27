@@ -16,6 +16,13 @@ final class ActionExecutor {
     /// the App layer observes it and brings up the main window.
     static let openMainWindowNotification = Notification.Name("DualSenseRemap.openMainWindow")
 
+    /// Posted (once per event name per app run) when a Hammerspoon event with
+    /// no native equivalent fires while Hammerspoon is unavailable. userInfo
+    /// carries the event name under `hammerspoonEventUserInfoKey`; the App/UI
+    /// layer observes it and surfaces the Hammerspoon page as guidance.
+    static let hammerspoonRequiredNotification = Notification.Name("DualSenseRemap.hammerspoonRequired")
+    static let hammerspoonEventUserInfoKey = "event"
+
     /// Hammerspoon event names that have a documented native equivalent.
     /// When `HammerspoonBridge.trigger` returns `false` (Hammerspoon absent)
     /// these degrade gracefully to the matching `SystemAction`.
@@ -24,7 +31,23 @@ final class ActionExecutor {
         "openLaunchpad": .launchpad, // legacy Spoon action name
         "missionControl": .missionControl,
         "showDesktop": .showDesktop,
+        "appSwitcher": .appSwitcher,
+        "mediaPlayPause": .mediaPlayPause,
+        "mediaNext": .mediaNext,
+        "mediaPrevious": .mediaPrevious,
     ]
+
+    /// Hammerspoon event names whose native equivalent is a plain key combo
+    /// (default macOS Spaces shortcuts, shared with the engine's touchpad
+    /// gestures).
+    private static let hammerspoonComboFallbacks: [String: KeyCombo] = [
+        "spaceLeft": MappingEngine.Constants.spacePreviousCombo,
+        "spaceRight": MappingEngine.Constants.spaceNextCombo,
+    ]
+
+    /// Event names already reported through `hammerspoonRequiredNotification`
+    /// (main thread only).
+    private var notifiedHammerspoonEvents: Set<String> = []
 
     /// Serial queue for blocking work (unicode typing, macros).
     private let workQueue = DispatchQueue(label: "com.dualsenseremap.output.actionexecutor",
@@ -138,8 +161,26 @@ final class ActionExecutor {
         let delivered = hammerspoonEnabled
             ? HammerspoonBridge.shared.trigger(event, params: [:])
             : false
-        if !delivered, let fallback = Self.hammerspoonNativeFallbacks[event] {
+        guard !delivered else { return }
+        if let fallback = Self.hammerspoonNativeFallbacks[event] {
             OutputSystemActions.perform(fallback)
+        } else if let combo = Self.hammerspoonComboFallbacks[event] {
+            EventSynthesizer.tap(combo)
+        } else {
+            // No native equivalent (window snapping, custom hooks…): tell the
+            // user once instead of silently doing nothing.
+            notifyHammerspoonRequired(for: event)
+        }
+    }
+
+    /// One-shot per event name: posts `hammerspoonRequiredNotification` so
+    /// the App layer can point the user to the Hammerspoon page.
+    private func notifyHammerspoonRequired(for event: String) {
+        DispatchQueue.main.async {
+            guard self.notifiedHammerspoonEvents.insert(event).inserted else { return }
+            NotificationCenter.default.post(name: Self.hammerspoonRequiredNotification,
+                                            object: nil,
+                                            userInfo: [Self.hammerspoonEventUserInfoKey: event])
         }
     }
 

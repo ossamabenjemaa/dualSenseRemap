@@ -85,6 +85,14 @@ struct ShellView: View {
         .sheet(isPresented: $showOnboarding) {
             OnboardingView()
         }
+        // "Requires Hammerspoon" notice: route to the Hammerspoon page
+        // (install status + guidance) when a mapped Hammerspoon-only event
+        // fired without Hammerspoon (AppDelegate brings the window up).
+        .onReceive(NotificationCenter.default.publisher(
+            for: ActionExecutor.hammerspoonRequiredNotification
+        )) { _ in
+            model.selection = .hammerspoon
+        }
     }
 
     // MARK: Sidebar

@@ -247,7 +247,7 @@ final class DualSenseManager: ObservableObject {
     // MARK: - Connection handling
 
     private func controllerDidConnect(_ controller: GCController) {
-        let name = controller.vendorName ?? controller.productCategory ?? "?"
+        let name = controller.vendorName ?? controller.productCategory
         logger.info("Controller connected: \(name, privacy: .public)")
 
         if let current = activeController {
@@ -301,7 +301,7 @@ final class DualSenseManager: ObservableObject {
             logger.info("Non-DualSense controller: touchpad and adaptive triggers unavailable")
         }
 
-        let name = controller.vendorName ?? controller.productCategory ?? "Manette"
+        let name = controller.vendorName ?? controller.productCategory
         pressedElements = []
         resetTouchState()
         var fresh = ControllerSnapshot()
@@ -406,7 +406,7 @@ final class DualSenseManager: ObservableObject {
         bind(dualSense.touchpadButton, to: .touchpadClick)
 
         // Finger-resting state — touchpadButton reports touch without press.
-        dualSense.touchpadButton.touchedChangedHandler = { [weak self] _, _, touched in
+        dualSense.touchpadButton.touchedChangedHandler = { [weak self] (_: GCControllerButtonInput, _: Float, _: Bool, touched: Bool) in
             guard let self = self else { return }
             self.touchpadButtonTouched = touched
             if !touched {
