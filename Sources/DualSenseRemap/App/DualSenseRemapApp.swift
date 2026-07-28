@@ -38,7 +38,9 @@ struct DualSenseRemapApp: App {
 /// and window / quit commands.
 struct AppMenuBarContent: View {
 
-    @ObservedObject private var dualSense = DualSenseManager.shared
+    // Scene-level UI observes the low-rate status feed, never the full
+    // high-rate manager — see ControllerStatusModel for why.
+    @ObservedObject private var controllerStatus = ControllerStatusModel.shared
     @ObservedObject private var profileStore = ProfileStore.shared
     @ObservedObject private var mappingModel = MappingEngineToggleModel.shared
     @ObservedObject private var keyboard = VirtualKeyboardController.shared
@@ -80,11 +82,11 @@ struct AppMenuBarContent: View {
     // MARK: Helpers
 
     private var connectionStatusLine: String {
-        let snapshot = dualSense.snapshot
+        let snapshot = controllerStatus.status
         guard snapshot.isConnected else {
             return "Manette non connectée"
         }
-        let name = snapshot.controllerName.isEmpty ? "DualSense" : snapshot.controllerName
+        let name = snapshot.name.isEmpty ? "DualSense" : snapshot.name
         let percent = Int((snapshot.battery.level * 100).rounded())
         switch snapshot.battery.state {
         case .charging:

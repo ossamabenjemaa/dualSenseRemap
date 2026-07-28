@@ -11,7 +11,7 @@ struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.dismiss) private var dismiss
 
-    @ObservedObject private var dualSense = DualSenseManager.shared
+    @ObservedObject private var controllerStatus = ControllerStatusModel.shared
     @ObservedObject private var permissions = PermissionsManager.shared
 
     @State private var step = 0
@@ -197,7 +197,7 @@ struct OnboardingView: View {
 
             // Live detection card.
             HStack(spacing: DS.s3) {
-                if dualSense.snapshot.isConnected {
+                if controllerStatus.status.isConnected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 24))
                         .foregroundColor(DS.success)
@@ -205,9 +205,9 @@ struct OnboardingView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Manette connectée")
                             .font(DS.headingFont)
-                        Text(dualSense.snapshot.controllerName.isEmpty
+                        Text(controllerStatus.status.name.isEmpty
                              ? "DualSense"
-                             : dualSense.snapshot.controllerName)
+                             : controllerStatus.status.name)
                             .font(DS.captionFont)
                             .foregroundColor(DS.textSecondary)
                     }
@@ -221,7 +221,7 @@ struct OnboardingView: View {
                 Spacer()
             }
             .dsCard()
-            .animation(DS.quickAnimation, value: dualSense.snapshot.isConnected)
+            .animation(DS.quickAnimation, value: controllerStatus.status.isConnected)
 
             Spacer()
         }

@@ -52,7 +52,6 @@ final class ShellModel: ObservableObject {
 struct ShellView: View {
 
     @StateObject private var model = ShellModel()
-    @ObservedObject private var dualSense = DualSenseManager.shared
     @ObservedObject private var profileStore = ProfileStore.shared
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -161,7 +160,7 @@ struct ShellView: View {
 /// profile picker and the global mapping kill-switch.
 struct ShellHeaderBar: View {
 
-    @ObservedObject private var dualSense = DualSenseManager.shared
+    @ObservedObject private var controllerStatus = ControllerStatusModel.shared
     @ObservedObject private var profileStore = ProfileStore.shared
     @ObservedObject private var mappingModel = MappingEngineToggleModel.shared
 
@@ -175,8 +174,8 @@ struct ShellHeaderBar: View {
 
             connectionPill
 
-            if dualSense.snapshot.isConnected {
-                ShellBatteryGauge(battery: dualSense.snapshot.battery)
+            if controllerStatus.status.isConnected {
+                ShellBatteryGauge(battery: controllerStatus.status.battery)
                     .transition(.opacity)
             }
 
@@ -192,19 +191,19 @@ struct ShellHeaderBar: View {
         }
         .padding(.horizontal, DS.s5)
         .padding(.vertical, DS.s3)
-        .animation(DS.quickAnimation, value: dualSense.snapshot.isConnected)
+        .animation(DS.quickAnimation, value: controllerStatus.status.isConnected)
     }
 
     // MARK: Connection pill
 
     private var connectionPill: some View {
         Button {
-            if !dualSense.snapshot.isConnected {
+            if !controllerStatus.status.isConnected {
                 showPairingHint.toggle()
             }
         } label: {
             StatusPill(
-                color: dualSense.snapshot.isConnected ? DS.success : DS.warning,
+                color: controllerStatus.status.isConnected ? DS.success : DS.warning,
                 label: connectionLabel
             )
         }
@@ -215,8 +214,8 @@ struct ShellHeaderBar: View {
     }
 
     private var connectionLabel: String {
-        guard dualSense.snapshot.isConnected else { return "Non connectée" }
-        let name = dualSense.snapshot.controllerName
+        guard controllerStatus.status.isConnected else { return "Non connectée" }
+        let name = controllerStatus.status.name
         return name.isEmpty ? "Connectée" : "Connectée · \(name)"
     }
 
