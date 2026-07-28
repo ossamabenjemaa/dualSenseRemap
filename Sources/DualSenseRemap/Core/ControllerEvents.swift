@@ -47,7 +47,9 @@ enum ControllerEvent {
 }
 
 /// Snapshot of the full controller state, used by the UI's live view.
-struct ControllerSnapshot {
+/// `Equatable` so the input layer can skip publishing identical states —
+/// the controller reports continuously even when nothing actually moved.
+struct ControllerSnapshot: Equatable {
     var pressed: Set<ControllerElement> = []
     var leftStick: CGPoint = .zero
     var rightStick: CGPoint = .zero

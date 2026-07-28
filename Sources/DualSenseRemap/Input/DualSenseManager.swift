@@ -29,7 +29,30 @@ final class DualSenseManager: ObservableObject {
     static let shared = DualSenseManager()
 
     /// Live full-state view consumed by the UI.
+    ///
+    /// Publishing is COALESCED — see `liveSnapshot` / `markSnapshotDirty()`.
+    /// Never mutate this directly from an input handler.
     @Published private(set) var snapshot = ControllerSnapshot()
+
+    // MARK: - UI publish coalescing
+
+    /// Authoritative live state, mutated at controller report rate.
+    ///
+    /// A DualSense reports at up to 250 Hz and its sticks jitter permanently,
+    /// even at rest. Assigning `snapshot` on every report fired
+    /// `objectWillChange` hundreds of times per second, invalidating the whole
+    /// SwiftUI tree (window, controller diagram, tuning cards, menu bar) — the
+    /// main thread could never finish a render before the next invalidation,
+    /// which pegged the CPU and eventually killed the app. Input handlers now
+    /// write here and request a flush instead.
+    private var liveSnapshot = ControllerSnapshot()
+    private var snapshotFlushScheduled = false
+    /// Upper bound on UI refresh rate. 30 Hz is imperceptible for a live
+    /// readout and ~8× cheaper than the raw report rate.
+    private static let uiPublishInterval: TimeInterval = 1.0 / 30.0
+    /// Stick/trigger values are rounded before display so a resting controller
+    /// settles on a constant value and stops republishing entirely.
+    private static let displayQuantum: Double = 100
 
     /// Discrete + continuous event stream consumed by the mapping engine and
     /// the virtual keyboard.
@@ -157,7 +180,8 @@ final class DualSenseManager: ObservableObject {
         pressedElements = []
         resetTouchState()
         let publish = {
-            self.snapshot = ControllerSnapshot()
+            self.liveSnapshot = ControllerSnapshot()
+            self.flushSnapshot()
             if wasConnected { self.events.send(.disconnected) }
         }
         if Thread.isMainThread { publish() } else { DispatchQueue.main.async(execute: publish) }
@@ -275,7 +299,8 @@ final class DualSenseManager: ObservableObject {
         teardownFeedbackHandles()
         pressedElements = []
         resetTouchState()
-        snapshot = ControllerSnapshot()
+        liveSnapshot = ControllerSnapshot()
+        flushSnapshot()
         events.send(.disconnected)
 
         // Fall back to any other connected controller, preferring a DualSense.
@@ -307,7 +332,8 @@ final class DualSenseManager: ObservableObject {
         var fresh = ControllerSnapshot()
         fresh.isConnected = true
         fresh.controllerName = name
-        snapshot = fresh
+        liveSnapshot = fresh
+        flushSnapshot()
         events.send(.connected(name: name))
 
         setPlayerIndicatorLights(lastPlayerIndicator)
@@ -370,16 +396,21 @@ final class DualSenseManager: ObservableObject {
         bind(pad.buttonHome, to: .ps)
 
         // Continuous: thumbsticks.
+        // The engine gets raw values through `events` (it needs the full
+        // resolution for smooth pointer motion); the UI gets a quantized,
+        // rate-limited copy.
         pad.leftThumbstick.valueChangedHandler = { [weak self] _, x, y in
             guard let self = self else { return }
             let dx = Double(x), dy = Double(y)
-            self.snapshot.leftStick = CGPoint(x: dx, y: dy)
+            self.liveSnapshot.leftStick = CGPoint(x: Self.quantized(dx), y: Self.quantized(dy))
+            self.markSnapshotDirty()
             self.events.send(.leftStick(x: dx, y: dy))
         }
         pad.rightThumbstick.valueChangedHandler = { [weak self] _, x, y in
             guard let self = self else { return }
             let dx = Double(x), dy = Double(y)
-            self.snapshot.rightStick = CGPoint(x: dx, y: dy)
+            self.liveSnapshot.rightStick = CGPoint(x: Self.quantized(dx), y: Self.quantized(dy))
+            self.markSnapshotDirty()
             self.events.send(.rightStick(x: dx, y: dy))
         }
 
@@ -387,13 +418,15 @@ final class DualSenseManager: ObservableObject {
         pad.leftTrigger.valueChangedHandler = { [weak self] _, value, _ in
             guard let self = self else { return }
             let v = Double(value)
-            self.snapshot.leftTrigger = v
+            self.liveSnapshot.leftTrigger = Self.quantized(v)
+            self.markSnapshotDirty()
             self.events.send(.leftTrigger(v))
         }
         pad.rightTrigger.valueChangedHandler = { [weak self] _, value, _ in
             guard let self = self else { return }
             let v = Double(value)
-            self.snapshot.rightTrigger = v
+            self.liveSnapshot.rightTrigger = Self.quantized(v)
+            self.markSnapshotDirty()
             self.events.send(.rightTrigger(v))
         }
     }
@@ -460,6 +493,33 @@ final class DualSenseManager: ObservableObject {
         }
     }
 
+    // MARK: - Snapshot publishing (main thread)
+
+    /// Requests a coalesced publish of `liveSnapshot`. Cheap to call at the
+    /// controller's full report rate: at most one flush per
+    /// `uiPublishInterval`, and none at all while the state is unchanged.
+    private func markSnapshotDirty() {
+        guard !snapshotFlushScheduled else { return }
+        snapshotFlushScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.uiPublishInterval) { [weak self] in
+            guard let self = self else { return }
+            self.snapshotFlushScheduled = false
+            self.flushSnapshot()
+        }
+    }
+
+    /// Publishes right away — for rare, structural changes (connection,
+    /// button edges, battery) where a coalescing delay would be noticeable.
+    private func flushSnapshot() {
+        guard snapshot != liveSnapshot else { return }
+        snapshot = liveSnapshot
+    }
+
+    /// Rounds a live analog value so stick/trigger jitter stops republishing.
+    private static func quantized(_ value: Double) -> Double {
+        (value * displayQuantum).rounded() / displayQuantum
+    }
+
     // MARK: - Event plumbing (main thread)
 
     /// Updates the pressed set and emits `.buttonDown`/`.buttonUp` exactly once per edge.
@@ -467,12 +527,14 @@ final class DualSenseManager: ObservableObject {
         if pressed {
             guard !pressedElements.contains(element) else { return }
             pressedElements.insert(element)
-            snapshot.pressed = pressedElements
+            liveSnapshot.pressed = pressedElements
+            flushSnapshot()
             events.send(.buttonDown(element))
         } else {
             guard pressedElements.contains(element) else { return }
             pressedElements.remove(element)
-            snapshot.pressed = pressedElements
+            liveSnapshot.pressed = pressedElements
+            flushSnapshot()
             events.send(.buttonUp(element))
         }
     }
@@ -500,11 +562,12 @@ final class DualSenseManager: ObservableObject {
         primaryTouch.isTouching = anyTouch
         secondaryTouch.isTouching = anyTouch && (secondaryTouch.x != 0 || secondaryTouch.y != 0)
 
-        guard primaryTouch != snapshot.primaryTouch || secondaryTouch != snapshot.secondaryTouch else {
+        guard primaryTouch != liveSnapshot.primaryTouch || secondaryTouch != liveSnapshot.secondaryTouch else {
             return
         }
-        snapshot.primaryTouch = primaryTouch
-        snapshot.secondaryTouch = secondaryTouch
+        liveSnapshot.primaryTouch = primaryTouch
+        liveSnapshot.secondaryTouch = secondaryTouch
+        markSnapshotDirty()
         events.send(.touchpad(primary: primaryTouch, secondary: secondaryTouch))
     }
 
@@ -572,9 +635,10 @@ final class DualSenseManager: ObservableObject {
         @unknown default: state = .unknown
         }
         let status = BatteryStatus(level: level, state: state)
-        guard status != snapshot.battery else { return }
+        guard status != liveSnapshot.battery else { return }
         let publish = {
-            self.snapshot.battery = status
+            self.liveSnapshot.battery = status
+            self.flushSnapshot()
             self.events.send(.battery(status))
         }
         if Thread.isMainThread { publish() } else { DispatchQueue.main.async(execute: publish) }
